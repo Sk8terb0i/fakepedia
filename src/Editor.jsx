@@ -1,12 +1,12 @@
 // src/Editor.jsx
-import { useState, useEffect } from "react";
-import ReactQuill from "react-quill";
-import "react-quill/dist/quill.snow.css";
-import { db, auth } from "./firebase";
+import { useState, useEffect, useRef, useMemo } from "react";
+import ReactQuill from "react-quill-new";
+import "react-quill-new/dist/quill.snow.css";
+import { db, auth, storage } from "./firebase"; // Import storage
 import { doc, setDoc, getDoc } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage"; // Storage functions
 import {
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
   onAuthStateChanged,
   signOut,
 } from "firebase/auth";
@@ -26,14 +26,8 @@ export default function Editor() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
-  const modules = {
-    toolbar: [
-      [{ header: [1, 2, 3, false] }],
-      ["bold", "italic", "underline"],
-      [{ script: "super" }, { script: "sub" }],
-      ["link", "image", "clean"],
-    ],
-  };
+  // We need a ref to access the Quill instance directly for inserting images
+  const quillRef = useRef(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) =>
@@ -54,6 +48,7 @@ export default function Editor() {
   }, [articleId]);
 
   const saveArticle = async () => {
+    if (!title.trim()) return alert("Please enter a title!");
     const urlSlug = title.toLowerCase().replace(/\s+/g, "-");
     const docRef = doc(db, "articles", urlSlug);
     await setDoc(docRef, { title, content, lastEdited: new Date() });
@@ -70,7 +65,60 @@ export default function Editor() {
     }
   };
 
-  // If not logged in, show the Email/Password Bouncer
+  // --- CUSTOM FIREBASE IMAGE HANDLER ---
+  const imageHandler = () => {
+    const input = document.createElement("input");
+    input.setAttribute("type", "file");
+    input.setAttribute("accept", "image/*");
+    input.click();
+
+    input.onchange = async () => {
+      const file = input.files[0];
+      if (file) {
+        try {
+          // 1. Create a unique reference in Firebase Storage
+          const storageRef = ref(
+            storage,
+            `article_images/${Date.now()}-${file.name}`,
+          );
+
+          // 2. Upload the file
+          await uploadBytes(storageRef, file);
+
+          // 3. Get the public URL
+          const downloadURL = await getDownloadURL(storageRef);
+
+          // 4. Insert the image into the editor at the current cursor position
+          const quill = quillRef.current.getEditor();
+          const range = quill.getSelection(true); // get current cursor position
+          quill.insertEmbed(range.index, "image", downloadURL);
+        } catch (error) {
+          console.error("Image upload failed:", error);
+          alert("Image upload failed. Check console for details.");
+        }
+      }
+    };
+  };
+
+  // useMemo is CRITICAL here so the editor doesn't re-render and lose focus on every keystroke
+  const modules = useMemo(
+    () => ({
+      toolbar: {
+        container: [
+          [{ header: [1, 2, 3, false] }],
+          ["bold", "italic", "underline"],
+          [{ script: "super" }, { script: "sub" }],
+          ["link", "image", "clean"],
+        ],
+        handlers: {
+          image: imageHandler, // Hijack the image button
+        },
+      },
+    }),
+    [],
+  );
+
+  // --- BOUNCER: Login Screen ---
   if (!user) {
     return (
       <div className="wiki-layout">
@@ -120,9 +168,12 @@ export default function Editor() {
     );
   }
 
-  // The Editor Layout
+  // --- SPLIT-PANE EDITOR LAYOUT ---
   return (
-    <div className="wiki-layout">
+    <div
+      className="wiki-layout"
+      style={{ maxWidth: "100%", padding: "0 20px" }}
+    >
       {/* Sidebar */}
       <div className="wiki-sidebar">
         <div
@@ -143,11 +194,7 @@ export default function Editor() {
         </ul>
         <hr />
         <ul>
-          <li style={{ color: "#54595d" }}>
-            Logged in as:
-            <br />
-            {user.email}
-          </li>
+          <li style={{ color: "#54595d" }}>{user.email}</li>
           <li>
             <a href="#" onClick={() => signOut(auth)}>
               Log out
@@ -156,52 +203,110 @@ export default function Editor() {
         </ul>
       </div>
 
-      {/* Main Content */}
-      <div className="wiki-main-wrapper">
-        <div className="wiki-tabs">
-          {articleId && (
-            <Link to={`/article/${articleId}`} className="wiki-tab">
-              Read
-            </Link>
-          )}
-          <div className="wiki-tab active">Edit</div>
-        </div>
+      {/* Main Wrapper is now a flex container for side-by-side editing */}
+      <div
+        className="wiki-main-wrapper"
+        style={{ display: "flex", gap: "20px", maxWidth: "calc(100% - 180px)" }}
+      >
+        {/* LEFT SIDE: The Editor */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+          <div className="wiki-tabs">
+            {articleId && (
+              <Link to={`/article/${articleId}`} className="wiki-tab">
+                Cancel & Read
+              </Link>
+            )}
+            <div className="wiki-tab active">Edit Mode</div>
+          </div>
 
-        <div className="wiki-content-box">
-          <h1 className="wiki-title">Editing {title || "New Article"}</h1>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Article Title"
+          <div
+            className="wiki-content-box"
             style={{
-              width: "100%",
-              padding: "10px",
-              marginBottom: "20px",
-              fontSize: "1.2rem",
-              boxSizing: "border-box",
-            }}
-          />
-          <ReactQuill
-            theme="snow"
-            value={content}
-            onChange={setContent}
-            modules={modules}
-            style={{ height: "400px", marginBottom: "50px" }}
-          />
-          <button
-            onClick={saveArticle}
-            style={{
-              padding: "10px 20px",
-              backgroundColor: "#0645ad",
-              color: "white",
-              border: "none",
-              cursor: "pointer",
-              fontSize: "1.1rem",
+              flexGrow: 1,
+              display: "flex",
+              flexDirection: "column",
+              padding: "20px",
             }}
           >
-            Publish changes
-          </button>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "20px",
+              }}
+            >
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Article Title"
+                style={{
+                  width: "60%",
+                  padding: "10px",
+                  fontSize: "1.2rem",
+                  fontFamily: "serif",
+                }}
+              />
+              <button
+                onClick={saveArticle}
+                style={{
+                  padding: "10px 20px",
+                  backgroundColor: "#0645ad",
+                  color: "white",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "1rem",
+                  borderRadius: "2px",
+                }}
+              >
+                Publish Changes
+              </button>
+            </div>
+
+            <ReactQuill
+              ref={quillRef} // Attach the ref here
+              theme="snow"
+              value={content}
+              onChange={setContent}
+              modules={modules}
+              style={{ flexGrow: 1, height: "60vh", overflowY: "auto" }}
+            />
+          </div>
+        </div>
+
+        {/* RIGHT SIDE: Live Wikipedia Preview */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+          <div className="wiki-tabs">
+            <div
+              className="wiki-tab active"
+              style={{ backgroundColor: "#eaf3ff", color: "#000" }}
+            >
+              Live Preview
+            </div>
+          </div>
+          <div
+            className="wiki-content-box"
+            style={{
+              flexGrow: 1,
+              padding: "30px 40px",
+              overflowY: "auto",
+              maxHeight: "75vh",
+              backgroundColor: "#fcfcfc",
+              border: "1px dashed #a2a9b1",
+            }}
+          >
+            <h1 className="wiki-title">{title || "Untitled Article"}</h1>
+            {/* The preview renders exactly how the real article will look */}
+            <div
+              className="wiki-content"
+              dangerouslySetInnerHTML={{
+                __html:
+                  content ||
+                  '<p style="color: #888;">Start typing to see the preview...</p>',
+              }}
+            />
+          </div>
         </div>
       </div>
     </div>
