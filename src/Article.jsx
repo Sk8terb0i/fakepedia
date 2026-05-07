@@ -8,18 +8,23 @@ export default function Article() {
   const { articleId } = useParams();
   const [article, setArticle] = useState(null);
 
-  // The Placeholder Parody Article
   const placeholder = {
-    title: "Uncyclopedia (Placeholder)",
+    title: "Internet Meme",
     content: `
-      <p><strong>Uncyclopedia</strong> is a parody of Wikipedia. According to top researchers<sup>[1]</sup>, it is entirely made up.</p>
+      <table class="wiki-infobox">
+        <tbody>
+          <tr><th colspan="2" class="wiki-infobox-title">Internet Meme</th></tr>
+          <tr><th>Also known as</th><td>Dank Memes, Brain Rot</td></tr>
+          <tr><th>Medium</th><td>Images, Videos, Text</td></tr>
+        </tbody>
+      </table>
+      <p>An <strong>Internet meme</strong> is a cultural item that is spread via the internet and often altered in a creative or humorous way.</p>
+      <div class="wiki-toc">
+        <div style="font-weight: bold; text-align: center; margin-bottom: 5px;">Contents</div>
+        <ul><li><a href="#History">1 History</a></li></ul>
+      </div>
       <h2>History</h2>
-      <p>It was created in a basement in 2026.</p>
-      <hr/>
-      <h3>Sources</h3>
-      <ol>
-        <li><a href="https://google.com" target="_blank">Dr. Fake Name's Journal of Nonsense</a></li>
-      </ol>
+      <p>The concept was first proposed by Richard Dawkins in 1976.</p>
     `,
   };
 
@@ -30,7 +35,7 @@ export default function Article() {
       if (docSnap.exists()) {
         setArticle(docSnap.data());
       } else {
-        setArticle(placeholder); // Fallback to placeholder if it doesn't exist
+        setArticle({ ...placeholder, title: articleId.replace(/-/g, " ") });
       }
     }
     fetchArticle();
@@ -39,34 +44,48 @@ export default function Article() {
   if (!article) return <div>Loading...</div>;
 
   return (
-    <div
-      style={{
-        maxWidth: "800px",
-        margin: "0 auto",
-        padding: "20px",
-        fontFamily: "sans-serif",
-      }}
-    >
-      <div
-        style={{
-          borderBottom: "1px solid #ccc",
-          paddingBottom: "10px",
-          marginBottom: "20px",
-          display: "flex",
-          justifyContent: "space-between",
-        }}
-      >
-        <h1>{article.title}</h1>
-        <Link to={`/edit/${articleId}`}>
-          <button style={{ padding: "5px 15px" }}>Edit this page</button>
-        </Link>
+    <div className="wiki-layout">
+      {/* Sidebar */}
+      <div className="wiki-sidebar">
+        <div
+          style={{
+            textAlign: "center",
+            marginBottom: "20px",
+            fontSize: "2rem",
+          }}
+        >
+          🌐
+          <br />
+          <b>Fakepedia</b>
+        </div>
+        <ul>
+          <li>
+            <Link to="/">Main page</Link>
+          </li>
+          <li>
+            <Link to={`/article/${articleId}`}>Random article</Link>
+          </li>
+        </ul>
       </div>
 
-      {/* Dangerously Set Inner HTML is used here to render the HTML output from React-Quill safely */}
-      <div
-        className="wiki-content"
-        dangerouslySetInnerHTML={{ __html: article.content }}
-      />
+      {/* Main Content */}
+      <div className="wiki-main-wrapper">
+        {/* Wikipedia Tabs */}
+        <div className="wiki-tabs">
+          <div className="wiki-tab active">Article</div>
+          <Link to={`/edit/${articleId}`} className="wiki-tab">
+            Edit
+          </Link>
+        </div>
+
+        <div className="wiki-content-box">
+          <h1 className="wiki-title">{article.title}</h1>
+          <div
+            className="wiki-content"
+            dangerouslySetInnerHTML={{ __html: article.content }}
+          />
+        </div>
+      </div>
     </div>
   );
 }

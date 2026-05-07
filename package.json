@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "homepage": "https://sk8terb0i.github.io/fakepedia", 
+  "homepage": "https://sk8terb0i.github.io/fakepedia",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -16,6 +16,7 @@
     "firebase": "^12.13.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
+    "react-quill": "^2.0.0",
     "react-router-dom": "^7.15.0"
   },
   "devDependencies": {
