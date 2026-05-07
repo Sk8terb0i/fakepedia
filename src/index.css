@@ -138,3 +138,94 @@ body {
   list-style-type: none;
   padding-left: 1em;
 }
+
+/* Custom Cite Button for the Editor Toolbar */
+.ql-toolbar .ql-cite {
+  width: auto !important;
+  padding: 0 5px;
+}
+.ql-toolbar .ql-cite::after {
+  content: "[Cite]";
+  font-weight: bold;
+  color: #0645ad;
+  font-family: sans-serif;
+  font-size: 14px;
+}
+
+/* Force ALL tables in the editor and article to act like an Infobox */
+.wiki-content table, 
+.ql-editor table {
+  float: right;
+  clear: right;
+  margin: 0 0 1em 1em;
+  border: 1px solid #a2a9b1;
+  background-color: #f8f9fa;
+  font-size: 88%;
+  width: 22em;
+  border-collapse: collapse;
+}
+
+.wiki-content td, .ql-editor td, 
+.wiki-content th, .ql-editor th {
+  border: 1px solid #a2a9b1;
+  padding: 0.4em;
+}
+
+.wiki-content th, .ql-editor th {
+  background-color: #eaecf0;
+  text-align: left;
+  font-weight: bold;
+}
+
+/* Make superscript reference links look authentic */
+.wiki-content sup a, 
+.ql-editor sup a {
+  color: #0645ad;
+  text-decoration: none;
+  cursor: pointer;
+}
+.wiki-content sup a:hover, 
+.ql-editor sup a:hover {
+  text-decoration: underline;
+}
+
+/* Ensure Infobox Title has the blue background */
+.wiki-content th.wiki-infobox-title,
+.ql-editor th.wiki-infobox-title {
+  text-align: center !important;
+  font-size: 125%;
+  font-weight: bold;
+  background-color: #b0c4de !important;
+}
+
+/* The Auto-Generated Table of Contents */
+.wiki-toc {
+  border: 1px solid #a2a9b1;
+  background-color: #f8f9fa;
+  padding: 15px 25px;
+  display: inline-block;
+  margin: 1.5em 0;
+  font-size: 95%;
+  min-width: 200px;
+}
+.wiki-toc ul { margin: 0; padding-left: 0; list-style: none; }
+.wiki-toc li { margin-bottom: 5px; }
+.wiki-toc a { color: #0645ad; text-decoration: none; }
+.wiki-toc a:hover { text-decoration: underline; }
+
+
+/* Force images inside the infobox to center and scale perfectly */
+.wiki-content table img, 
+.ql-editor table img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+/* Optional: remove the background/padding for the image row to make it flush */
+.wiki-content table td:has(img), 
+.ql-editor table td:has(img) {
+  background-color: #ffffff;
+  padding: 10px;
+}
