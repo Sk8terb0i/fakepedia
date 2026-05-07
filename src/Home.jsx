@@ -13,9 +13,9 @@ export default function Home() {
             fontSize: "2rem",
           }}
         >
-          🌐
+          🍷
           <br />
-          <b>Fakepedia</b>
+          <b>Vinopedia</b>
         </div>
         <ul>
           <li>
@@ -62,7 +62,7 @@ export default function Home() {
                 fontSize: "2.5rem",
               }}
             >
-              Welcome to Fakepedia,
+              Welcome to Vinopedia,
             </h1>
             <p style={{ margin: 0, fontSize: "1.2rem" }}>
               the free encyclopedia that anyone can mock up.
@@ -121,7 +121,7 @@ export default function Home() {
               >
                 <input
                   type="text"
-                  placeholder="Search Fakepedia"
+                  placeholder="Search Vinopedia"
                   style={{
                     width: "100%",
                     padding: "5px",

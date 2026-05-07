@@ -82,9 +82,9 @@ export default function Article() {
             fontSize: "2rem",
           }}
         >
-          🌐
+          🍷
           <br />
-          <b>Fakepedia</b>
+          <b>Vinopedia</b>
         </div>
         <ul>
           <li>
