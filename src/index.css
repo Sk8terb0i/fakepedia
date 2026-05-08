@@ -229,3 +229,23 @@ body {
   background-color: #ffffff;
   padding: 10px;
 }
+
+/* 1. Make standard article images look like Wikipedia thumbnails */
+.wiki-content img, 
+.ql-editor img {
+  max-width: 300px; /* Reasonable default size */
+  height: auto;
+  border: 1px solid #c8ccd1;
+  padding: 3px;
+  background-color: #ffffff;
+  margin: 10px 0;
+}
+
+/* 2. Override the thumbnail rule for Infobox images so they fill the box */
+.wiki-content table img, 
+.ql-editor table img {
+  max-width: 100%;
+  border: none;
+  padding: 0;
+  margin: 0 auto;
+}

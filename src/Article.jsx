@@ -3,40 +3,34 @@ import { db } from "./firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { useParams, Link } from "react-router-dom";
 
-// --- THE MAGIC HTML PROCESSOR ---
-const processWikiHTML = (rawHtml) => {
+// --- THE UPGRADED MAGIC HTML PROCESSOR ---
+const processWikiHTML = (rawHtml, mainImageUrl = null) => {
   if (!rawHtml) return "";
   const parser = new DOMParser();
   const doc = parser.parseFromString(rawHtml, "text/html");
 
-  // 1. Remove any old hardcoded TOCs
+  // 1. Auto-Generate the TOC
   doc.querySelectorAll(".wiki-toc").forEach((el) => el.remove());
-
-  // 2. Auto-Generate the TOC based on <h2> tags
   const headers = doc.querySelectorAll("h2");
   if (headers.length > 0) {
     const tocDiv = doc.createElement("div");
     tocDiv.className = "wiki-toc";
     tocDiv.innerHTML =
       '<div style="font-weight: bold; text-align: center; margin-bottom: 10px;">Contents</div>';
-
     const ul = doc.createElement("ul");
     headers.forEach((h2, index) => {
       const id =
         h2.textContent.trim().replace(/[^a-zA-Z0-9]/g, "_") || `sec-${index}`;
-      h2.id = id; // Add ID so we can scroll to it
+      h2.id = id;
       const li = doc.createElement("li");
-      // We use onclick to scroll smoothly without breaking the HashRouter URLs
       li.innerHTML = `<a href="#${id}" onclick="document.getElementById('${id}').scrollIntoView({behavior:'smooth'}); return false;">${index + 1} ${h2.textContent}</a>`;
       ul.appendChild(li);
     });
-
     tocDiv.appendChild(ul);
-    // Insert the TOC right before the first H2
     headers[0].parentNode.insertBefore(tocDiv, headers[0]);
   }
 
-  // 3. Fix Citation Links for smooth scrolling
+  // 2. Fix Citation Links
   const citations = doc.querySelectorAll("sup a");
   citations.forEach((cite) => {
     const targetId = cite.getAttribute("href").replace("#", "");
@@ -45,6 +39,24 @@ const processWikiHTML = (rawHtml) => {
       `document.getElementById('${targetId}').scrollIntoView({behavior:'smooth'}); return false;`,
     );
   });
+
+  // 3. INJECT THE MAIN IMAGE INTO THE INFOBOX
+  if (mainImageUrl) {
+    // Find the first table (the Infobox)
+    const infoboxBody = doc.querySelector("table tbody");
+    if (infoboxBody) {
+      const imgRow = doc.createElement("tr");
+      imgRow.innerHTML = `<td colspan="2" style="text-align: center; background: white; padding: 10px;"><img src="${mainImageUrl}" style="max-width: 100%; height: auto; display: block; margin: 0 auto;" alt="Infobox Image"/></td>`;
+
+      // Insert it right after the first row (which is the title)
+      const firstRow = infoboxBody.querySelector("tr");
+      if (firstRow) {
+        firstRow.parentNode.insertBefore(imgRow, firstRow.nextSibling);
+      } else {
+        infoboxBody.prepend(imgRow);
+      }
+    }
+  }
 
   return doc.body.innerHTML;
 };
@@ -108,7 +120,7 @@ export default function Article() {
           <div
             className="wiki-content"
             dangerouslySetInnerHTML={{
-              __html: processWikiHTML(article.content),
+              __html: processWikiHTML(article.content, article.mainImage),
             }}
           />
 

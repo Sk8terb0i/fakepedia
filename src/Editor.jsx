@@ -12,10 +12,13 @@ import {
 import { useParams, useNavigate, Link } from "react-router-dom";
 
 // Copying the exact same processor for the Live Preview
-const processWikiHTML = (rawHtml) => {
+// --- THE UPGRADED MAGIC HTML PROCESSOR ---
+const processWikiHTML = (rawHtml, mainImageUrl = null) => {
   if (!rawHtml) return "";
   const parser = new DOMParser();
   const doc = parser.parseFromString(rawHtml, "text/html");
+
+  // 1. Auto-Generate the TOC
   doc.querySelectorAll(".wiki-toc").forEach((el) => el.remove());
   const headers = doc.querySelectorAll("h2");
   if (headers.length > 0) {
@@ -35,6 +38,35 @@ const processWikiHTML = (rawHtml) => {
     tocDiv.appendChild(ul);
     headers[0].parentNode.insertBefore(tocDiv, headers[0]);
   }
+
+  // 2. Fix Citation Links
+  const citations = doc.querySelectorAll("sup a");
+  citations.forEach((cite) => {
+    const targetId = cite.getAttribute("href").replace("#", "");
+    cite.setAttribute(
+      "onclick",
+      `document.getElementById('${targetId}').scrollIntoView({behavior:'smooth'}); return false;`,
+    );
+  });
+
+  // 3. INJECT THE MAIN IMAGE INTO THE INFOBOX
+  if (mainImageUrl) {
+    // Find the first table (the Infobox)
+    const infoboxBody = doc.querySelector("table tbody");
+    if (infoboxBody) {
+      const imgRow = doc.createElement("tr");
+      imgRow.innerHTML = `<td colspan="2" style="text-align: center; background: white; padding: 10px;"><img src="${mainImageUrl}" style="max-width: 100%; height: auto; display: block; margin: 0 auto;" alt="Infobox Image"/></td>`;
+
+      // Insert it right after the first row (which is the title)
+      const firstRow = infoboxBody.querySelector("tr");
+      if (firstRow) {
+        firstRow.parentNode.insertBefore(imgRow, firstRow.nextSibling);
+      } else {
+        infoboxBody.prepend(imgRow);
+      }
+    }
+  }
+
   return doc.body.innerHTML;
 };
 
@@ -46,6 +78,7 @@ export default function Editor() {
   );
   const [content, setContent] = useState("");
   const [sources, setSources] = useState([]);
+  const [mainImage, setMainImage] = useState(null);
   const sourcesRef = useRef([]);
 
   const [user, setUser] = useState(null);
@@ -57,12 +90,10 @@ export default function Editor() {
     sourcesRef.current = sources;
   }, [sources]);
 
-  // NEW BASE TEMPLATE: Includes the image and removes the hardcoded TOC!
   const baseTemplate = `
     <table>
       <tbody>
         <tr><th colspan="2" class="wiki-infobox-title">Article Title</th></tr>
-        <tr><td colspan="2" style="text-align: center; background: white;"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/8/80/Wikipedia-logo-v2.svg/220px-Wikipedia-logo-v2.svg.png" style="max-width: 100%; height: auto;" alt="placeholder image"/></td></tr>
         <tr><th>Also known as</th><td>Alternative names</td></tr>
         <tr><th>Medium</th><td>Images, Videos, Text</td></tr>
       </tbody>
@@ -87,6 +118,7 @@ export default function Editor() {
         if (docSnap.exists()) {
           setContent(docSnap.data().content);
           setSources(docSnap.data().sources || []);
+          setMainImage(docSnap.data().mainImage || null);
         } else {
           setContent(baseTemplate);
         }
@@ -101,7 +133,13 @@ export default function Editor() {
     if (!title.trim()) return alert("Please enter a title!");
     const urlSlug = title.toLowerCase().replace(/\s+/g, "-");
     const docRef = doc(db, "articles", urlSlug);
-    await setDoc(docRef, { title, content, sources, lastEdited: new Date() });
+    await setDoc(docRef, {
+      title,
+      content,
+      sources,
+      mainImage,
+      lastEdited: new Date(),
+    });
     navigate(`/article/${urlSlug}`);
   };
 
@@ -110,6 +148,30 @@ export default function Editor() {
     await signInWithEmailAndPassword(auth, email, password).catch((err) =>
       alert(err.message),
     );
+  };
+
+  // --- DEDICATED INFOBOX IMAGE HANDLER ---
+  const handleMainImageClick = () => {
+    const input = document.createElement("input");
+    input.setAttribute("type", "file");
+    input.setAttribute("accept", "image/*");
+    input.click();
+    input.onchange = async () => {
+      const file = input.files[0];
+      if (file) {
+        try {
+          const storageRef = ref(
+            storage,
+            `article_images/featured-${Date.now()}-${file.name}`,
+          );
+          await uploadBytes(storageRef, file);
+          const downloadURL = await getDownloadURL(storageRef);
+          setMainImage(downloadURL); // Save directly to state!
+        } catch (error) {
+          alert("Featured image upload failed.");
+        }
+      }
+    };
   };
 
   const imageHandler = () => {
@@ -219,32 +281,71 @@ export default function Editor() {
             className="wiki-content-box"
             style={{ padding: "20px", marginBottom: "20px" }}
           >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                marginBottom: "10px",
-              }}
-            >
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Article Title"
-                style={{ width: "60%", padding: "10px" }}
-              />
-              <button
-                onClick={saveArticle}
+            <div style={{ display: "flex", gap: "20px", marginBottom: "20px" }}>
+              <div
                 style={{
-                  padding: "10px 20px",
-                  backgroundColor: "#0645ad",
-                  color: "white",
-                  border: "none",
-                  cursor: "pointer",
+                  flex: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "15px",
                 }}
               >
-                Publish
-              </button>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Article Title"
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    fontSize: "1.2rem",
+                    fontFamily: "serif",
+                  }}
+                />
+
+                {/* THE NEW CLICKABLE IMAGE BOX */}
+                <div
+                  onClick={handleMainImageClick}
+                  style={{
+                    border: "2px dashed #a2a9b1",
+                    padding: "15px",
+                    textAlign: "center",
+                    cursor: "pointer",
+                    backgroundColor: "#f8f9fa",
+                    color: "#0645ad",
+                    fontWeight: "bold",
+                  }}
+                >
+                  {mainImage ? (
+                    <div>
+                      <img
+                        src={mainImage}
+                        alt="Featured"
+                        style={{ maxHeight: "100px", marginBottom: "10px" }}
+                      />
+                      <br />
+                      🔄 Click to replace Infobox Image
+                    </div>
+                  ) : (
+                    "📸 Click here to upload Infobox Image"
+                  )}
+                </div>
+              </div>
+              <div>
+                <button
+                  onClick={saveArticle}
+                  style={{
+                    padding: "10px 20px",
+                    backgroundColor: "#0645ad",
+                    color: "white",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: "1.1rem",
+                  }}
+                >
+                  Publish
+                </button>
+              </div>
             </div>
 
             <ReactQuill
@@ -312,7 +413,9 @@ export default function Editor() {
             {/* The Live Content is processed to generate the TOC! */}
             <div
               className="wiki-content"
-              dangerouslySetInnerHTML={{ __html: processWikiHTML(content) }}
+              dangerouslySetInnerHTML={{
+                __html: processWikiHTML(content, mainImage),
+              }}
             />
 
             {sources.length > 0 && (
